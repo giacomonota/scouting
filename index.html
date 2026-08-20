@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scouting Search</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #10141A; --surface: #171C22; --surface-2: #1E242C; --border: #2A313B;
+    --text: #ECEEF0; --text-muted: #8C97A3; --text-faint: #5B646E;
+    --accent: #E8A33D; --accent-soft: rgba(232,163,61,0.14);
+    --up: #4F9B7C; --down: #E2665A;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; margin: 0; padding: 20px 14px 80px; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 24px; letter-spacing: 0.5px; text-transform: uppercase; margin: 0 0 4px; }
+  .sub { color: var(--text-muted); font-size: 13px; margin: 0 0 18px; }
+  @media (min-width: 640px) { body { padding: 32px 20px 80px; } h1 { font-size: 26px; } }
+
+  /* Login screen */
+  .login-wrap { max-width: 360px; margin: 60px auto; }
+  .login-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 26px 22px; }
+  .login-box input {
+    width: 100%; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 13px; color: var(--text); font-size: 15px; margin-bottom: 10px; font-family: 'Inter', sans-serif;
+  }
+  .login-box input:focus { outline: none; border-color: var(--accent); }
+  .login-box button {
+    width: 100%; background: var(--accent); color: #241804; border: none; border-radius: 8px;
+    padding: 13px; font-weight: 600; font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif;
+  }
+  .login-error { color: var(--down); font-size: 12.5px; margin-top: 10px; text-align: center; }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
+  .user-chip { font-size: 12px; color: var(--text-muted); }
+  .logout-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; padding: 5px 11px; font-size: 11.5px; cursor: pointer; }
+
+  .search-bar { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .search-bar input { flex: 1; min-width: 200px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 13px 15px; color: var(--text); font-size: 15px; font-family: 'Inter', sans-serif; }
+  .search-bar input:focus { outline: none; border-color: var(--accent); }
+  .search-bar button { background: var(--accent); color: #241804; border: none; border-radius: 8px; padding: 0 22px; font-weight: 600; font-size: 13.5px; cursor: pointer; min-height: 46px; }
+  .search-bar button:hover { background: #F0AD52; }
+  .examples { font-size: 11.5px; color: var(--text-faint); margin-bottom: 18px; line-height: 1.8; }
+  .examples b { color: var(--text-muted); cursor: pointer; }
+  .examples b:hover { color: var(--accent); }
+
+  .interpretation { display: none; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 14px; font-size: 12.5px; color: var(--accent); margin-bottom: 6px; }
+  .interpretation.show { display: block; }
+
+  .toggle-row { display: flex; gap: 6px; }
+  .chip { font-size: 11.5px; padding: 6px 11px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-muted); cursor: pointer; }
+  .chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+  .results-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
+  .results-count { font-size: 13px; color: var(--text-muted); }
+  .results-count b { color: var(--text); font-family: 'IBM Plex Mono', monospace; }
+  .sort-select { width: auto; font-size: 12px; padding: 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-faint); padding: 8px 9px; border-bottom: 1px solid var(--border); font-weight: 500; white-space: nowrap; }
+  td { padding: 10px 9px; font-size: 12.5px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: var(--surface-2); }
+  .player-name { font-weight: 500; }
+  .player-name-click, .agent-name-click { cursor: pointer; }
+  .player-name-click:hover, .agent-name-click:hover { color: var(--accent); text-decoration: underline; }
+  .player-meta { color: var(--text-faint); font-size: 11px; }
+  .num { font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  .trend-up { color: var(--up); } .trend-down { color: var(--down); }
+  .eu-badge { font-size: 9.5px; padding: 2px 6px; border-radius: 4px; background: var(--surface-2); color: var(--text-faint); margin-left: 6px; white-space: nowrap; }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-faint); font-size: 13.5px; }
+  .note { font-size: 11.5px; color: var(--text-faint); line-height: 1.6; margin-top: 14px; }
+  .loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
+
+  /* Mobile: table rows become stacked cards */
+  @media (max-width: 700px) {
+    .panel { padding: 10px; }
+    table { min-width: 0; }
+    thead { display: none; }
+    tbody tr { display: block; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+    tbody tr:hover td { background: transparent; }
+    td { display: block; border: none; padding: 5px 0; }
+    td:empty { display: none; }
+    td[data-label]:before { content: attr(data-label); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-faint); display: block; margin-bottom: 2px; }
+    td[data-label="Player"]:before { display: none; }
+  }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(8,10,13,0.72); display: flex; align-items: flex-start; justify-content: center; padding: 20px 10px; z-index: 100; overflow-y: auto; }
+  .modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; max-width: 640px; width: 100%; padding: 20px; position: relative; }
+  @media (min-width: 640px) { .modal-box { padding: 24px; } .modal-overlay { padding: 40px 16px; } }
+  .modal-close { position: absolute; top: 14px; right: 14px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); width: 30px; height: 30px; border-radius: 6px; cursor: pointer; font-size: 15px; line-height: 1; }
+  .modal-close:hover { color: var(--text); }
+  .modal-header h2 { font-family: 'Oswald', sans-serif; text-transform: uppercase; font-size: 19px; margin: 0 0 2px; letter-spacing: 0.3px; padding-right: 30px; }
+  .modal-header .sub2 { color: var(--text-muted); font-size: 12.5px; }
+  .fact-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 16px 0; }
+  @media (min-width: 640px) { .fact-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; } }
+  .fact { background: var(--surface-2); border-radius: 7px; padding: 9px 11px; }
+  .fact .k { font-size: 10px; text-transform: uppercase; color: var(--text-faint); letter-spacing: 0.5px; margin-bottom: 3px; }
+  .fact .v { font-size: 13px; font-family: 'IBM Plex Mono', monospace; }
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-faint); margin: 20px 0 8px; font-weight: 500; }
+  .mini-table { width: 100%; font-size: 12px; }
+  .mini-table th { font-size: 9.5px; padding: 5px 8px; }
+  .mini-table td { padding: 6px 8px; font-size: 12px; }
+  .scroll-box { max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 7px; }
+  .scouting-box { background: var(--surface-2); border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.6; }
+  .scouting-box a { color: var(--accent); font-size: 12.5px; display: inline-block; margin-top: 8px; }
+  .scouting-box .sk { font-size: 10px; text-transform: uppercase; color: var(--text-faint); letter-spacing: 0.5px; margin: 10px 0 3px; }
+  .scouting-box .sk:first-child { margin-top: 0; }
+  .scouting-btn { background: var(--accent); color: #241804; border: none; border-radius: 6px; padding: 8px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="login-wrap" id="login-screen">
+  <h1 style="text-align:center;">Scouting Search</h1>
+  <div class="login-box">
+    <input type="email" id="login-email" placeholder="Email" autocomplete="username">
+    <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
+    <button id="login-btn">Log in</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app-screen" style="display:none;">
+  <div class="top-bar">
+    <div>
+      <h1>Scouting Search</h1>
+      <p class="sub">Describe who you're looking for. Click any player or agent name for full details.</p>
+    </div>
+    <div>
+      <span class="user-chip" id="user-chip"></span>
+      <button class="logout-btn" onclick="logout()">Log out</button>
+    </div>
+  </div>
+
+  <div class="search-bar">
+    <input type="text" id="nl-query" placeholder="e.g. Italian defenders under 25, contract ending 2027">
+    <button id="search-btn">Search</button>
+  </div>
+  <div class="examples">
+    Try: <b onclick="runExample(this)">midfielders similar to Barella</b> ·
+    <b onclick="runExample(this)">defenders above 1.90m with at least 5 goals</b> ·
+    <b onclick="runExample(this)">più giovani centrocampisti in Serie A fino a 22 anni</b>
+  </div>
+
+  <div class="interpretation" id="interpretation"></div>
+  <div class="note" id="filter-debug" style="margin-top:0;margin-bottom:14px;"></div>
+
+  <div class="results-head">
+    <div class="results-count">Showing <b id="result-count">0</b> players</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <select class="sort-select" id="sort-field">
+        <option value="market_value">Value</option>
+        <option value="age">Age</option>
+        <option value="contract_end">Contract end</option>
+        <option value="value_trend_pct">Value trend</option>
+        <option value="potential_value_estimate">Potential</option>
+        <option value="agent_total_value">Agent portfolio</option>
+        <option value="current_season_goals">Goals (current season)</option>
+        <option value="current_season_assists">Assists (current season)</option>
+      </select>
+      <div class="toggle-row" id="f-direction">
+        <div class="chip" data-val="asc">Asc</div><div class="chip on" data-val="desc">Desc</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div id="results-panel"><div class="empty-state">Type what you're looking for above and hit Search.</div></div>
+  </div>
+  <div class="note">"Potential" = 75th-percentile value that similarly-profiled players (same position, similar age, similar current value) were actually worth 3–5 years later, traced from real career histories (min. 15 comparable trajectories) — a historical benchmark, not a guarantee. Loans are excluded by default — say "including loans" to see them. Try height ("above 1.85m"), stats ("at least 10 goals"), or "similar to [player name]" to find comparable profiles.</div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <button class="modal-close" id="modal-close">✕</button>
+    <div id="modal-content"><div class="loading">Loading…</div></div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://pmwcwdvxzmudgtbctozy.supabase.co';
+const SUPA_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtd2N3ZHZ4em11ZGd0YmN0b3p5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjE5NjEsImV4cCI6MjEwMjE5Nzk2MX0.HiAKs6GtlHbXZst5ZlHiyUKzDSbObB5vkah46Ip_Eqs';
+
+const $ = id => document.getElementById(id);
+let clubsMap = {};
+let leaguesList = [];
+let lastRows = [];
+let lastAgentPlayers = [];
+let currentFilters = {};
+let session = null; // { access_token, refresh_token, expires_at, email }
+
+function authHeaders() {
+  return { apikey: SUPA_ANON_KEY, Authorization: 'Bearer ' + (session ? session.access_token : SUPA_ANON_KEY) };
+}
+
+// ---------- Auth ----------
+function saveSession(s) { localStorage.setItem('scouting_session', JSON.stringify(s)); }
+function loadSession() {
+  try { return JSON.parse(localStorage.getItem('scouting_session')); } catch (e) { return null; }
+}
+function clearSession() { localStorage.removeItem('scouting_session'); }
+
+async function login(email, password) {
+  const res = await fetch(SUPA_URL + '/auth/v1/token?grant_type=password', {
+    method: 'POST',
+    headers: { apikey: SUPA_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error_description || data.msg || 'Login failed');
+  return {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: Date.now() + (data.expires_in * 1000),
+    email: data.user.email
+  };
+}
+
+async function refreshSession(s) {
+  const res = await fetch(SUPA_URL + '/auth/v1/token?grant_type=refresh_token', {
+    method: 'POST',
+    headers: { apikey: SUPA_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: s.refresh_token })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error('Session expired');
+  return {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: Date.now() + (data.expires_in * 1000),
+    email: data.user.email
+  };
+}
+
+function showApp() {
+  $('login-screen').style.display = 'none';
+  $('app-screen').style.display = 'block';
+  $('user-chip').textContent = session.email;
+  loadClubsMap();
+}
+function showLogin() {
+  $('app-screen').style.display = 'none';
+  $('login-screen').style.display = 'block';
+}
+function logout() { clearSession(); session = null; showLogin(); }
+
+$('login-btn').onclick = async () => {
+  const email = $('login-email').value.trim();
+  const password = $('login-password').value;
+  $('login-error').textContent = '';
+  if (!email || !password) { $('login-error').textContent = 'Enter your email and password.'; return; }
+  $('login-btn').disabled = true; $('login-btn').textContent = 'Logging in…';
+  try {
+    session = await login(email, password);
+    saveSession(session);
+    showApp();
+  } catch (e) {
+    $('login-error').textContent = e.message;
+  } finally {
+    $('login-btn').disabled = false; $('login-btn').textContent = 'Log in';
+  }
+};
+$('login-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('login-btn').click(); });
+
+(async function init() {
+  const saved = loadSession();
+  if (!saved) { showLogin(); return; }
+  if (Date.now() < saved.expires_at - 60000) {
+    session = saved;
+    showApp();
+  } else {
+    try {
+      session = await refreshSession(saved);
+      saveSession(session);
+      showApp();
+    } catch (e) {
+      clearSession();
+      showLogin();
+    }
+  }
+})();
+
+// ---------- Data helpers ----------
+async function loadClubsMap() {
+  try {
+    const res = await fetch(SUPA_URL + '/rest/v1/clubs?select=club_id,name,league', { headers: authHeaders() });
+    const data = await res.json();
+    data.forEach(c => clubsMap[c.club_id] = c.name);
+    leaguesList = [...new Set(data.map(c => c.league))].filter(Boolean);
+  } catch (e) {}
+}
+
+function fmtEur(v) {
+  if (v === null || v === undefined) return '—';
+  if (v >= 1000000) return '€' + (v / 1000000).toFixed(1) + 'M';
+  if (v >= 1000) return '€' + (v / 1000).toFixed(0) + 'K';
+  return '€' + v;
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+function clubName(id) { return id ? (clubsMap[id] || ('Club #' + id)) : '—'; }
+function esc(s) { return (s ?? '').toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function setupChips(containerId, onPick) {
+  $(containerId).querySelectorAll('.chip').forEach(chip => {
+    chip.onclick = () => {
+      $(containerId).querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+      chip.classList.add('on'); onPick();
+      if (Object.keys(currentFilters).length) fetchResults();
+    };
+  });
+}
+setupChips('f-direction', () => {});
+$('sort-field').onchange = () => { if (Object.keys(currentFilters).length) fetchResults(); };
+
+function runExample(el) { $('nl-query').value = el.textContent; runSearch(); }
+
+// ---------- Local rule-based query parser (English + Italian) ----------
+const POSITION_MAP = [
+  [/goalkeepers?|\bkeepers?\b|\bgk\b|portier[ei]/i, 'Goalkeeper'],
+  [/defenders?|centre-?backs?|center-?backs?|full-?backs?|\bcbs?\b|\bfbs?\b|difensor[ei]/i, 'Defender'],
+  [/midfielders?|centrocampist[ai]/i, 'Midfield'],
+  [/strikers?|forwards?|attackers?|wingers?|attaccant[ei]|punt[ae]/i, 'Attack']
+];
+const FOOT_MAP = [
+  [/left-?footed|left foot|mancin[oi]|piede sinistro/i, 'left'],
+  [/right-?footed|right foot|destr[oi]|piede destro/i, 'right'],
+  [/two-?footed|both feet|ambidestr[oi]/i, 'both']
+];
+const NATIONALITY_MAP = [
+  [/italians?|italian[ei]/i, 'Italy'], [/english|inglesi?/i, 'England'], [/french|frances[ei]/i, 'France'],
+  [/spanish|spagnol[oi]/i, 'Spain'], [/germans?|tedesch[ei]/i, 'Germany'], [/brazilians?|brasilian[ei]/i, 'Brazil'],
+  [/argentin(e|ian)s?|argentin[oi]/i, 'Argentina'], [/portuguese|portoghes[ei]/i, 'Portugal'], [/dutch|olandes[ei]/i, 'Netherlands'],
+  [/belgians?|belg[ai]/i, 'Belgium'], [/croatians?|croat[ai]/i, 'Croatia'], [/nigerians?|nigerian[oi]/i, 'Nigeria'],
+  [/senegalese/i, 'Senegal'], [/moroccans?|marocchin[oi]/i, 'Morocco'], [/scottish|scozzes[ei]/i, 'Scotland'],
+  [/irish|irlandes[ei]/i, 'Ireland'], [/welsh|gallesi?/i, 'Wales'], [/polish|polacc[ao]/i, 'Poland'],
+  [/swedish|svedes[ei]/i, 'Sweden'], [/norwegians?|norveges[ei]/i, 'Norway'], [/danish|danes[ei]/i, 'Denmark'],
+  [/austrians?|austriac[oi]/i, 'Austria'], [/swiss|svizzer[oi]/i, 'Switzerland'], [/turkish|turch[ei]/i, 'Turkey'],
+  [/greeks?|grec[oi]/i, 'Greece'], [/serbians?|serb[ei]/i, 'Serbia'], [/colombians?|colombian[oi]/i, 'Colombia'],
+  [/uruguayans?|uruguaian[oi]/i, 'Uruguay'], [/chileans?|cilen[oi]/i, 'Chile'], [/japanese|giappones[ei]/i, 'Japan'],
+  [/korean|corean[oi]/i, 'Korea, South']
+];
+
+// Italian number words, for ages like "ventidue anni"
+const IT_NUMBERS = { ventidue: 22, ventuno: 21, venti: 20, ventitre: 23, ventiquattro: 24, venticinque: 25 };
+
+function parseAgeWords(q, f) {
+  let m;
+  if ((m = q.match(/fino a\s*(\d{1,2})\s*ann[io]/i)) || (m = q.match(/up to\s*(\d{1,2})/i))) f.age_max = parseInt(m[1]);
+  if ((m = q.match(/(?:sotto (?:i|gli)|meno di)\s*(\d{1,2})\s*ann[io]/i)) || (m = q.match(/under\s+(\d{1,2})\b/i))) f.age_max = parseInt(m[1]);
+  if ((m = q.match(/(?:sopra (?:i|gli)|pi[uù] di)\s*(\d{1,2})\s*ann[io]/i)) || (m = q.match(/over\s+(\d{1,2})\b/i))) f.age_min = parseInt(m[1]);
+  if ((m = q.match(/dai\s*(\d{1,2})\s*ai\s*(\d{1,2})\s*ann[io]/i)) || (m = q.match(/(\d{1,2})\s*(?:-|to)\s*(\d{1,2})\s*(?:years?|yo)?/i))) {
+    f.age_min = parseInt(m[1]); f.age_max = parseInt(m[2]);
+  }
+}
+
+// "above 1.85m" / "over 190cm" / "taller than 1.90" / "sopra 1.85m" — deliberately requires
+// a decimal-meter format or explicit cm/height wording, so it never collides with money "15m"
+function parseHeight(q, f) {
+  let m;
+  if ((m = q.match(/(?:above|over|taller than|min(?:imum)? height|sopra)\s*(\d\.\d{1,2})\s*m\b/i))) f.height_min = Math.round(parseFloat(m[1]) * 100);
+  if ((m = q.match(/(?:below|under|shorter than|max(?:imum)? height|sotto)\s*(\d\.\d{1,2})\s*m\b/i))) f.height_max = Math.round(parseFloat(m[1]) * 100);
+  if ((m = q.match(/(?:above|over|taller than|min(?:imum)? height)\s*(\d{3})\s*cm\b/i))) f.height_min = parseInt(m[1]);
+  if ((m = q.match(/(?:below|under|shorter than|max(?:imum)? height)\s*(\d{3})\s*cm\b/i))) f.height_max = parseInt(m[1]);
+}
+
+// Threshold filters for goals / assists / appearances / value trend % / agent portfolio value
+function parseStatThresholds(q, f) {
+  let m;
+  if ((m = q.match(/(?:more than|at least|over|pi[uù] di|almeno)\s*(\d+)\s*goals?|gol\b/i))) f.goals_min = parseInt(m[1]);
+  if ((m = q.match(/(?:less than|under|meno di)\s*(\d+)\s*goals?|gol\b/i))) f.goals_max = parseInt(m[1]);
+  if ((m = q.match(/(?:more than|at least|over|pi[uù] di|almeno)\s*(\d+)\s*assists?/i))) f.assists_min = parseInt(m[1]);
+  if ((m = q.match(/(?:less than|under|meno di)\s*(\d+)\s*assists?/i))) f.assists_max = parseInt(m[1]);
+  if ((m = q.match(/(?:more than|at least|over|pi[uù] di|almeno)\s*(\d+)\s*appearances?|presenze/i))) f.appearances_min = parseInt(m[1]);
+  if ((m = q.match(/(?:less than|under|meno di)\s*(\d+)\s*appearances?|presenze/i))) f.appearances_max = parseInt(m[1]);
+  if ((m = q.match(/(?:trend|value trend)\s*(?:above|over|of at least)\s*(-?\d+(?:\.\d+)?)\s*%/i))) f.value_trend_min = parseFloat(m[1]);
+  if ((m = q.match(/(?:trend|value trend)\s*(?:below|under)\s*(-?\d+(?:\.\d+)?)\s*%/i))) f.value_trend_max = parseFloat(m[1]);
+  if ((m = q.match(/agent (?:portfolio|value)\s*(?:above|over)\s*€?\s*(\d+(?:\.\d+)?)\s*m/i))) f.agent_value_min = parseFloat(m[1]) * 1000000;
+  if ((m = q.match(/agent (?:portfolio|value)\s*(?:below|under)\s*€?\s*(\d+(?:\.\d+)?)\s*m/i))) f.agent_value_max = parseFloat(m[1]) * 1000000;
+}
+
+async function findReferencePlayer(name) {
+  try {
+    const res = await fetch(SUPA_URL + '/rest/v1/player_search?name=ilike.*' + encodeURIComponent(name) + '*&select=name,position,age,market_value,height_cm&order=market_value.desc.nullslast&limit=1', { headers: authHeaders() });
+    const data = await res.json();
+    return data[0] || null;
+  } catch (e) { return null; }
+}
+
+async function parseQueryLocally(query) {
+  const f = { exclude_loans: true };
+  const q = query.trim();
+
+  const pos = POSITION_MAP.find(([re]) => re.test(q));
+  if (pos) f.position = pos[1];
+  const foot = FOOT_MAP.find(([re]) => re.test(q));
+  if (foot) f.foot = foot[1];
+  const nat = NATIONALITY_MAP.find(([re]) => re.test(q));
+  if (nat) f.nationality = nat[1];
+
+  parseAgeWords(q, f);
+  parseHeight(q, f);
+  parseStatThresholds(q, f);
+
+  let m;
+  if ((m = q.match(/(?:less than|under|below|meno di)\s*€?\s*(\d+(?:\.\d+)?)\s*m(?:ilion[ei])?\b/i))) f.value_max = parseFloat(m[1]) * 1000000;
+  if ((m = q.match(/(?:more than|over|above|pi[uù] di)\s*€?\s*(\d+(?:\.\d+)?)\s*m(?:ilion[ei])?\b/i))) f.value_min = parseFloat(m[1]) * 1000000;
+  if ((m = q.match(/(?:less than|under|below|meno di)\s*€?\s*(\d+(?:\.\d+)?)\s*k\b/i))) f.value_max = parseFloat(m[1]) * 1000;
+  if ((m = q.match(/(?:more than|over|above|pi[uù] di)\s*€?\s*(\d+(?:\.\d+)?)\s*k\b/i))) f.value_min = parseFloat(m[1]) * 1000;
+
+  if ((m = q.match(/(?:ending|expiring|ends?|scadenza|in scadenza)\s*(?:in\s*|nel\s*)?(\d{4})/i))) {
+    f.contract_from = m[1] + '-01-01'; f.contract_to = m[1] + '-12-31';
+  } else if (/within\s+(?:a|one|1)\s+year|entro (?:un|1) anno/i.test(q)) {
+    const d = new Date(); d.setFullYear(d.getFullYear() + 1); f.contract_to = d.toISOString().slice(0, 10);
+  } else if ((m = q.match(/within\s+(\d+)\s+months?|entro\s+(\d+)\s+mesi/i))) {
+    const d = new Date(); d.setMonth(d.getMonth() + parseInt(m[1] || m[2])); f.contract_to = d.toISOString().slice(0, 10);
+  }
+
+  const lowerQ = q.toLowerCase();
+  const lg = leaguesList.find(l => lowerQ.includes(l.toLowerCase()));
+  if (lg) f.league = lg;
+  if (!f.league && /\bserie\s*a\b|\blega\s*serie\s*a\b/i.test(q)) f.league = 'Serie A';
+
+  if (/exclud\w*\s+loans?|no loans?|not?\s+on loan|esclud\w*\s+prestit[oi]|senza prestit[oi]/i.test(q)) f.exclude_loans = true;
+  else if (/includ\w*\s+loans?|with loans?|allow(ing)?\s+loans?|includ\w*\s+(?:i\s+)?prestit[oi]|con prestit[oi]/i.test(q)) f.exclude_loans = false;
+
+  // Sorting hints — English and Italian
+  if (/rising value|increasing value|value (going )?up|valore in (crescita|aumento)/i.test(q)) { f.sort_field = 'value_trend_pct'; f.sort_direction = 'desc'; }
+  else if (/falling value|decreasing value|value (going )?down|valore in (calo|diminuzione)/i.test(q)) { f.sort_field = 'value_trend_pct'; f.sort_direction = 'asc'; }
+  else if (/highest potential|most potential|maggior[e]? potenziale/i.test(q)) { f.sort_field = 'potential_value_estimate'; f.sort_direction = 'desc'; }
+  else if (/pi[uù]\s+(giovani|giovane)|youngest/i.test(q)) { f.sort_field = 'age'; f.sort_direction = 'asc'; }
+  else if (/pi[uù]\s+(vecchi|anziani)|oldest/i.test(q)) { f.sort_field = 'age'; f.sort_direction = 'desc'; }
+  else if (/cheapest|lowest value|meno costos[oi]|valore pi[uù] basso/i.test(q)) { f.sort_field = 'market_value'; f.sort_direction = 'asc'; }
+  else if (/most valuable|highest value|pi[uù] costos[oi]|valore pi[uù] alto/i.test(q)) { f.sort_field = 'market_value'; f.sort_direction = 'desc'; }
+  else if (/pi[uù]\s+gol|most goals|top scorers?|capocannonier[ei]/i.test(q)) { f.sort_field = 'current_season_goals'; f.sort_direction = 'desc'; }
+  else if (/pi[uù]\s+assist|most assists/i.test(q)) { f.sort_field = 'current_season_assists'; f.sort_direction = 'desc'; }
+  else if (/largest agent portfolio|biggest agent/i.test(q)) { f.sort_field = 'agent_total_value'; f.sort_direction = 'desc'; }
+
+  // Explicit direction — works standalone, applies to whichever field is currently selected
+  if (/decrescente|descending|discendente|decreasing order/i.test(q)) f.sort_direction = 'desc';
+  else if (/crescente|ascending|dal pi[uù] piccolo|dal pi[uù] basso|increasing order/i.test(q)) f.sort_direction = 'asc';
+
+  // "similar to [player]" — looks up the real player and builds ranges around their actual profile
+  const simMatch = q.match(/similar (?:to|as)\s+([A-Za-zÀ-ÿ\s.\-']+?)(?:$|,|\.|;|\bin\b|\bwith\b|\bworth\b)/i);
+  if (simMatch) {
+    const refName = simMatch[1].trim();
+    const ref = await findReferencePlayer(refName);
+    if (ref) {
+      f.similar_to_name = ref.name;
+      if (!f.position) f.position = ref.position;
+      if (ref.age !== null && ref.age !== undefined) { f.age_min = Math.max(15, ref.age - 3); f.age_max = ref.age + 3; }
+      if (ref.market_value) { f.value_min = Math.round(ref.market_value * 0.4); f.value_max = Math.round(ref.market_value * 2.5); }
+      if (ref.height_cm) { f.height_min = ref.height_cm - 6; f.height_max = ref.height_cm + 6; }
+    } else {
+      f.similar_to_not_found = refName;
+    }
+  }
+
+  const parts = [];
+  if (f.similar_to_name) parts.push('players similar to ' + f.similar_to_name);
+  else if (f.similar_to_not_found) parts.push('(couldn\'t find "' + f.similar_to_not_found + '" — showing unfiltered by similarity)');
+  if (f.position) parts.push(f.position.toLowerCase() + 's');
+  else if (!f.similar_to_name) parts.push('players');
+  if (f.nationality) parts.push(f.nationality + ' nationality');
+  if (f.age_min && f.age_max) parts.push('aged ' + f.age_min + '–' + f.age_max);
+  else if (f.age_max) parts.push('under ' + f.age_max);
+  else if (f.age_min) parts.push('over ' + f.age_min);
+  if (f.height_min && f.height_max) parts.push(f.height_min + '–' + f.height_max + 'cm');
+  else if (f.height_min) parts.push('over ' + (f.height_min/100).toFixed(2) + 'm');
+  else if (f.height_max) parts.push('under ' + (f.height_max/100).toFixed(2) + 'm');
+  if (f.league) parts.push('in the ' + f.league);
+  if (f.value_max) parts.push('worth under ' + fmtEur(f.value_max));
+  if (f.value_min) parts.push('worth over ' + fmtEur(f.value_min));
+  if (f.goals_min) parts.push('at least ' + f.goals_min + ' goals');
+  if (f.goals_max) parts.push('under ' + f.goals_max + ' goals');
+  if (f.assists_min) parts.push('at least ' + f.assists_min + ' assists');
+  if (f.appearances_min) parts.push('at least ' + f.appearances_min + ' appearances');
+  if (f.value_trend_min !== undefined) parts.push('value trend above ' + f.value_trend_min + '%');
+  if (f.value_trend_max !== undefined) parts.push('value trend below ' + f.value_trend_max + '%');
+  if (f.agent_value_min) parts.push('agent portfolio over ' + fmtEur(f.agent_value_min));
+  if (f.contract_to) parts.push('contract ending by ' + f.contract_to);
+  if (f.foot) parts.push(f.foot + '-footed');
+  parts.push(f.exclude_loans === false ? 'including possible loans' : 'excluding possible loans');
+  f.interpretation = 'Showing ' + parts.join(', ');
+  return f;
+}
+
+async function runSearch() {
+  const query = $('nl-query').value.trim();
+  if (!query) return;
+  const btn = $('search-btn');
+  btn.disabled = true; btn.textContent = 'Searching…';
+  $('results-panel').innerHTML = '<div class="loading">Reading your request…</div>';
+  const f = await parseQueryLocally(query);
+  currentFilters = f;
+  if (f.sort_field) $('sort-field').value = f.sort_field;
+  if (f.sort_direction) document.querySelectorAll('#f-direction .chip').forEach(c => c.classList.toggle('on', c.dataset.val === f.sort_direction));
+  $('interpretation').textContent = f.interpretation;
+  $('interpretation').className = 'interpretation show';
+  $('filter-debug').textContent = 'Filters used: ' + JSON.stringify(f);
+  await fetchResults(query);
+  btn.disabled = false; btn.textContent = 'Search';
+}
+
+function getSortDirection() {
+  const on = document.querySelector('#f-direction .chip.on');
+  return on ? on.dataset.val : 'desc';
+}
+
+async function logSearch(queryText, resultCount) {
+  try {
+    await fetch(SUPA_URL + '/rest/v1/search_log', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        user_email: session ? session.email : null,
+        query_text: queryText,
+        parsed_filters: currentFilters,
+        result_count: resultCount
+      })
+    });
+  } catch (e) {}
+}
+
+async function fetchResults(queryTextForLog) {
+  const f = currentFilters;
+  let params = ['select=*'];
+  if (f.position) params.push('position=eq.' + encodeURIComponent(f.position));
+  if (f.league) params.push('league=eq.' + encodeURIComponent(f.league));
+  if (f.foot) params.push('foot=eq.' + f.foot);
+  if (f.age_min) params.push('age=gte.' + f.age_min);
+  if (f.age_max) params.push('age=lte.' + f.age_max);
+  if (f.height_min) params.push('height_cm=gte.' + f.height_min);
+  if (f.height_max) params.push('height_cm=lte.' + f.height_max);
+  if (f.value_min) params.push('market_value=gte.' + f.value_min);
+  if (f.value_max) params.push('market_value=lte.' + f.value_max);
+  if (f.goals_min) params.push('current_season_goals=gte.' + f.goals_min);
+  if (f.goals_max) params.push('current_season_goals=lte.' + f.goals_max);
+  if (f.assists_min) params.push('current_season_assists=gte.' + f.assists_min);
+  if (f.assists_max) params.push('current_season_assists=lte.' + f.assists_max);
+  if (f.appearances_min) params.push('current_season_appearances=gte.' + f.appearances_min);
+  if (f.appearances_max) params.push('current_season_appearances=lte.' + f.appearances_max);
+  if (f.value_trend_min !== undefined) params.push('value_trend_pct=gte.' + f.value_trend_min);
+  if (f.value_trend_max !== undefined) params.push('value_trend_pct=lte.' + f.value_trend_max);
+  if (f.agent_value_min) params.push('agent_total_value=gte.' + f.agent_value_min);
+  if (f.agent_value_max) params.push('agent_total_value=lte.' + f.agent_value_max);
+  if (f.contract_from) params.push('contract_end=gte.' + f.contract_from);
+  if (f.contract_to) params.push('contract_end=lte.' + f.contract_to);
+  if (f.nationality) params.push('nationality=ilike.*' + encodeURIComponent(f.nationality) + '*');
+  if (f.exclude_loans !== false) params.push('potential_loan_flag=eq.false');
+  params.push('order=' + $('sort-field').value + '.' + getSortDirection() + '.nullslast');
+  params.push('limit=200');
+
+  try {
+    const res = await fetch(SUPA_URL + '/rest/v1/player_search?' + params.join('&'), { headers: authHeaders() });
+    if (!res.ok) {
+      const text = await res.text();
+      $('results-panel').innerHTML = '<div class="empty-state">Search failed.<br><span style="font-size:11px">' + esc(text.slice(0,200)) + '</span></div>';
+      $('result-count').textContent = '0';
+      return;
+    }
+    lastRows = await res.json();
+    renderResults(lastRows);
+    if (queryTextForLog) logSearch(queryTextForLog, lastRows.length);
+  } catch (e) {
+    $('results-panel').innerHTML = '<div class="empty-state">Network error — could not reach the database.</div>';
+  }
+}
+
+function renderResults(rows) {
+  $('result-count').textContent = rows.length.toLocaleString() + (rows.length === 200 ? '+' : '');
+  if (!rows.length) { $('results-panel').innerHTML = '<div class="empty-state">No players match that search.</div>'; return; }
+
+  let html = '<table><thead><tr><th>Player</th><th>Club</th><th>Value</th><th>Trend</th><th>Goals</th><th>Potential (3-5y)</th><th>Agent</th><th>Contract</th></tr></thead><tbody>';
+  rows.forEach((r, i) => {
+    let trendHtml = '<span class="num player-meta">—</span>';
+    if (r.value_trend_pct !== null && r.value_trend_pct !== undefined) {
+      const cls = r.value_trend_pct >= 0 ? 'trend-up' : 'trend-down';
+      const sign = r.value_trend_pct >= 0 ? '+' : '';
+      trendHtml = '<span class="num ' + cls + '">' + sign + r.value_trend_pct + '%</span>';
+    }
+    let potentialHtml = '<span class="player-meta">—</span>';
+    if (r.potential_value_estimate !== null && r.potential_value_estimate !== undefined) {
+      potentialHtml = '<span class="num" style="color:var(--accent)">' + fmtEur(r.potential_value_estimate) + '</span>';
+    }
+    let agentHtml = '<span class="player-meta">—</span>';
+    if (r.agent_name) {
+      agentHtml = '<span class="agent-name-click">' + esc(r.agent_name) + '</span>' +
+        '<div class="player-meta">' + fmtEur(r.agent_total_value) + '</div>';
+    }
+    html += '<tr data-idx="' + i + '">' +
+      '<td data-label="Player"><div class="player-name player-name-click">' + esc(r.name) + '<span class="eu-badge">' + esc(r.nationality || '?') + '</span>' +
+        (r.potential_loan_flag ? '<span class="eu-badge" style="color:var(--accent);border:1px solid var(--accent)">possible loan</span>' : '') + '</div>' +
+        '<div class="player-meta">' + esc(r.position || '—') + ' · age ' + (r.age ?? '—') + '</div></td>' +
+      '<td data-label="Club">' + esc(r.club_name || '—') + '</td>' +
+      '<td data-label="Value" class="num">' + fmtEur(r.market_value) + '</td>' +
+      '<td data-label="Trend">' + trendHtml + '</td>' +
+      '<td data-label="Goals" class="num">' + (r.current_season_goals ?? '—') + (r.current_season_assists ? ' <span class="player-meta">(' + r.current_season_assists + ' ast)</span>' : '') + '</td>' +
+      '<td data-label="Potential (3-5y)">' + potentialHtml + '</td>' +
+      '<td data-label="Agent">' + agentHtml + '</td>' +
+      '<td data-label="Contract" class="num">' + fmtDate(r.contract_end) + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  $('results-panel').innerHTML = html;
+}
+
+$('results-panel').addEventListener('click', (e) => {
+  const tr = e.target.closest('tr[data-idx]');
+  if (!tr) return;
+  const row = lastRows[tr.dataset.idx];
+  if (!row) return;
+  if (e.target.closest('.player-name-click')) openPlayerModal(row);
+  else if (e.target.closest('.agent-name-click')) { if (row.agent_name) openAgentModal(row.agent_name); }
+});
+
+function showModal(html) { $('modal-content').innerHTML = html; $('modal-overlay').style.display = 'flex'; }
+function closeModal() { $('modal-overlay').style.display = 'none'; }
+$('modal-close').onclick = closeModal;
+$('modal-overlay').onclick = (e) => { if (e.target.id === 'modal-overlay') closeModal(); };
+
+async function openPlayerModal(row) {
+  showModal('<div class="loading">Loading player details…</div>');
+  try {
+    const [mvRes, trRes, perfRes] = await Promise.all([
+      fetch(SUPA_URL + '/rest/v1/market_values?player_id=eq.' + row.player_id + '&order=date.desc&select=date,value_eur&limit=15', { headers: authHeaders() }),
+      fetch(SUPA_URL + '/rest/v1/transfers?player_id=eq.' + row.player_id + '&order=date.desc&select=date,from_club_id,to_club_id,fee_eur', { headers: authHeaders() }),
+      fetch(SUPA_URL + '/rest/v1/performance_fbref?player_id=eq.' + row.player_id + '&order=season.desc&select=season,competition,appearances,starts,minutes,goals,assists,yellow_cards,red_cards', { headers: authHeaders() })
+    ]);
+    renderPlayerModal(row, await mvRes.json(), await trRes.json(), await perfRes.json());
+    loadScoutingReport(row);
+  } catch (e) {
+    showModal('<div class="empty-state">Could not load player details.</div>');
+  }
+}
+
+function renderPlayerModal(r, mv, tr, perf) {
+  let h = '<div class="modal-header"><h2>' + esc(r.name) + '</h2>' +
+    '<div class="sub2">' + esc(r.club_name || 'Unattached') + ' · ' + esc(r.league || '—') +
+    (r.transfermarkt_url ? ' · <a href="' + esc(r.transfermarkt_url) + '" target="_blank" rel="noopener" style="color:var(--accent)">Transfermarkt ↗</a>' : '') +
+    '</div></div>';
+
+  h += '<div class="fact-grid">' +
+    fact('Age', r.age ?? '—') + fact('Position', r.position || '—') + fact('Foot', r.foot || '—') +
+    fact('Height', r.height_cm ? r.height_cm + ' cm (' + (r.height_cm/100).toFixed(2) + 'm)' : '—') + fact('Nationality', r.nationality || '—') + fact('Market value', fmtEur(r.market_value)) +
+    fact('Value trend (1y)', r.value_trend_pct !== null && r.value_trend_pct !== undefined ? (r.value_trend_pct >= 0 ? '+' : '') + r.value_trend_pct + '%' : '—') +
+    fact('Potential in 3-5 years', r.potential_value_estimate !== null && r.potential_value_estimate !== undefined ? fmtEur(r.potential_value_estimate) : '—') +
+    fact('Contract ends', fmtDate(r.contract_end)) + fact('Agent', r.agent_name ? esc(r.agent_name) : '—') +
+    fact('Int\'l caps / goals', (r.international_caps ?? 0) + ' / ' + (r.international_goals ?? 0)) +
+    '</div>';
+
+  h += '<div class="section-title">Scouting report</div><div class="scouting-box" id="scouting-section">Researching…</div>';
+
+  h += '<div class="section-title">Market value history</div><div class="scroll-box"><table class="mini-table"><thead><tr><th>Date</th><th>Value</th></tr></thead><tbody>';
+  if (mv.length) mv.forEach(m => h += '<tr><td>' + fmtDate(m.date) + '</td><td class="num">' + fmtEur(m.value_eur) + '</td></tr>');
+  else h += '<tr><td colspan="2" class="player-meta">No history recorded</td></tr>';
+  h += '</tbody></table></div>';
+
+  h += '<div class="section-title">Transfer history</div><div class="scroll-box"><table class="mini-table"><thead><tr><th>Date</th><th>From</th><th>To</th><th>Fee</th></tr></thead><tbody>';
+  if (tr.length) tr.forEach(t => h += '<tr><td>' + fmtDate(t.date) + '</td><td>' + esc(clubName(t.from_club_id)) + '</td><td>' + esc(clubName(t.to_club_id)) + '</td><td class="num">' + fmtEur(t.fee_eur) + '</td></tr>');
+  else h += '<tr><td colspan="4" class="player-meta">No transfers recorded</td></tr>';
+  h += '</tbody></table></div>';
+
+  h += '<div class="section-title">Performance by season</div><div class="scroll-box"><table class="mini-table"><thead><tr><th>Season</th><th>Comp</th><th>Apps</th><th>Mins</th><th>G</th><th>A</th><th>Y/R</th></tr></thead><tbody>';
+  if (perf.length) perf.forEach(p => h += '<tr><td>' + esc(p.season) + '</td><td>' + esc(p.competition) + '</td><td class="num">' + (p.appearances ?? 0) + '</td><td class="num">' + (p.minutes ?? 0) + '</td><td class="num">' + (p.goals ?? 0) + '</td><td class="num">' + (p.assists ?? 0) + '</td><td class="num">' + (p.yellow_cards ?? 0) + '/' + (p.red_cards ?? 0) + '</td></tr>');
+  else h += '<tr><td colspan="7" class="player-meta">No performance data recorded</td></tr>';
+  h += '</tbody></table></div>';
+
+  showModal(h);
+}
+
+function fact(k, v) { return '<div class="fact"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div></div>'; }
+
+async function loadScoutingReport(row) {
+  const el = document.getElementById('scouting-section');
+  if (!el) return;
+  try {
+    const res = await fetch('/.netlify/functions/scouting-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (session ? session.access_token : '') },
+      body: JSON.stringify({ name: row.name, position: row.position, club: row.club_name })
+    });
+    const r = await res.json();
+    if (!res.ok || r.error) {
+      showScoutingFallback(row, r.error || ('HTTP ' + res.status));
+      return;
+    }
+    renderScoutingReport(r);
+  } catch (e) {
+    showScoutingFallback(row, 'Network error: ' + e.message);
+  }
+}
+
+function renderScoutingReport(r) {
+  const el = document.getElementById('scouting-section');
+  if (!el) return;
+  if (!r.found) {
+    el.innerHTML = esc(r.playing_style || 'No reliable public information found for this player.');
+    return;
+  }
+  let h = '';
+  if (r.playing_style) h += '<div class="sk">Playing style</div>' + esc(r.playing_style);
+  if (r.technical) h += '<div class="sk">Technical</div>' + esc(r.technical);
+  if (r.physical) h += '<div class="sk">Physical</div>' + esc(r.physical);
+  if (r.mental_tactical) h += '<div class="sk">Mental &amp; tactical</div>' + esc(r.mental_tactical);
+  if (r.strengths && r.strengths.length) h += '<div class="sk">Strengths</div>' + r.strengths.map(s => '+ ' + esc(s)).join('<br>');
+  if (r.weaknesses && r.weaknesses.length) h += '<div class="sk">Weaknesses</div>' + r.weaknesses.map(s => '− ' + esc(s)).join('<br>');
+  if (r.recent_form) h += '<div class="sk">Recent form</div>' + esc(r.recent_form);
+  if (r.recommendation) h += '<div class="sk">Recommendation</div><b>' + esc(r.recommendation) + '</b>';
+  if (r.highlights_url) h += '<br><a href="' + esc(r.highlights_url) + '" target="_blank" rel="noopener">▶ Watch highlights</a>';
+  el.innerHTML = h;
+}
+
+function showScoutingFallback(row, errorMsg) {
+  const el = document.getElementById('scouting-section');
+  if (!el) return;
+  el.innerHTML =
+    'No live report available right now.' +
+    (errorMsg ? '<div class="player-meta" style="font-size:11px;margin-top:6px;">Details: ' + esc(errorMsg) + '</div>' : '');
+}
+
+
+
+async function openAgentModal(agentName) {
+  showModal('<div class="loading">Loading agent portfolio…</div>');
+  try {
+    const res = await fetch(SUPA_URL + '/rest/v1/player_search?agent_name=eq.' + encodeURIComponent(agentName) + '&order=market_value.desc.nullslast&select=player_id,name,club_name,league,market_value,position,age,contract_end', { headers: authHeaders() });
+    lastAgentPlayers = await res.json();
+    renderAgentModal(agentName, lastAgentPlayers);
+  } catch (e) {
+    showModal('<div class="empty-state">Could not load agent details.</div>');
+  }
+}
+
+function renderAgentModal(agentName, players) {
+  const total = players.reduce((s, p) => s + (p.market_value || 0), 0);
+  let h = '<div class="modal-header"><h2>' + esc(agentName) + '</h2>' +
+    '<div class="sub2">' + players.length + ' players represented · ' + fmtEur(total) + ' total portfolio value</div></div>';
+  h += '<div class="section-title">Players</div><div class="scroll-box"><table class="mini-table"><thead><tr><th>Player</th><th>Club</th><th>Value</th><th>Contract ends</th></tr></thead><tbody>';
+  players.forEach((p, i) => {
+    h += '<tr data-aidx="' + i + '"><td class="player-name-click">' + esc(p.name) + '<div class="player-meta">' + esc(p.position || '—') + ' · age ' + (p.age ?? '—') + '</div></td>' +
+      '<td>' + esc(p.club_name || '—') + '<div class="player-meta">' + esc(p.league || '—') + '</div></td>' +
+      '<td class="num">' + fmtEur(p.market_value) + '</td><td class="num">' + fmtDate(p.contract_end) + '</td></tr>';
+  });
+  h += '</tbody></table></div>';
+  showModal(h);
+}
+
+$('modal-content').addEventListener('click', (e) => {
+  const tr = e.target.closest('tr[data-aidx]');
+  if (!tr || !e.target.closest('.player-name-click')) return;
+  const p = lastAgentPlayers[tr.dataset.aidx];
+  if (p) openPlayerModal(p);
+});
+
+$('search-btn').onclick = runSearch;
+$('nl-query').addEventListener('keydown', (e) => { if (e.key === 'Enter') runSearch(); });
+</script>
+</body>
+</html>
