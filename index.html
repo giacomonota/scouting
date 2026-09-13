@@ -421,9 +421,28 @@ async function parseQueryLocally(query) {
   }
 
   const lowerQ = q.toLowerCase();
-  const lg = leaguesList.find(l => lowerQ.includes(l.toLowerCase()));
-  if (lg) f.league = lg;
-  if (!f.league && /\bserie\s*a\b|\blega\s*serie\s*a\b/i.test(q)) f.league = 'Serie A';
+  // Known alternate/historical names that don't literally appear in our stored league values
+  const LEAGUE_ALIASES = [
+    [/lega\s*pro/i, 'Serie C'],
+    [/serie\s*c\b/i, 'Serie C'],
+    [/serie\s*d\b/i, 'Serie D'],
+    [/serie\s*a\b/i, 'Serie A'],
+    [/serie\s*b\b/i, 'Serie B']
+  ];
+  const alias = LEAGUE_ALIASES.find(([re]) => re.test(q));
+  if (alias) {
+    f.league_pattern = alias[1];
+  } else {
+    // Exact match against real league values, or a match against the base name
+    // before " - " for divisions split into regional groups (e.g. "Serie C - Girone A")
+    const exact = leaguesList.find(l => lowerQ.includes(l.toLowerCase()));
+    if (exact) f.league = exact;
+    else {
+      const baseNames = [...new Set(leaguesList.map(l => l.split(' - ')[0]))];
+      const baseMatch = baseNames.find(b => b.length > 4 && lowerQ.includes(b.toLowerCase()));
+      if (baseMatch) f.league_pattern = baseMatch;
+    }
+  }
 
   if (/exclud\w*\s+loans?|no loans?|not?\s+on loan|esclud\w*\s+prestit[oi]|senza prestit[oi]/i.test(q)) f.exclude_loans = true;
   else if (/includ\w*\s+loans?|with loans?|allow(ing)?\s+loans?|includ\w*\s+(?:i\s+)?prestit[oi]|con prestit[oi]/i.test(q)) f.exclude_loans = false;
@@ -473,6 +492,7 @@ async function parseQueryLocally(query) {
   else if (f.height_min) parts.push('over ' + (f.height_min/100).toFixed(2) + 'm');
   else if (f.height_max) parts.push('under ' + (f.height_max/100).toFixed(2) + 'm');
   if (f.league) parts.push('in the ' + f.league);
+  if (f.league_pattern) parts.push('in ' + f.league_pattern + ' (all groups)');
   if (f.value_max) parts.push('worth under ' + fmtEur(f.value_max));
   if (f.value_min) parts.push('worth over ' + fmtEur(f.value_min));
   if (f.goals_min) parts.push('at least ' + f.goals_min + ' goals');
@@ -531,6 +551,7 @@ async function fetchResults(queryTextForLog) {
   let params = ['select=*'];
   if (f.position) params.push('position=eq.' + encodeURIComponent(f.position));
   if (f.league) params.push('league=eq.' + encodeURIComponent(f.league));
+  if (f.league_pattern) params.push('league=ilike.*' + encodeURIComponent(f.league_pattern) + '*');
   if (f.foot) params.push('foot=eq.' + f.foot);
   if (f.age_min) params.push('age=gte.' + f.age_min);
   if (f.age_max) params.push('age=lte.' + f.age_max);
@@ -596,7 +617,7 @@ function renderResults(rows) {
       '<td data-label="Player"><div class="player-name player-name-click">' + esc(r.name) + '<span class="eu-badge">' + esc(r.nationality || '?') + '</span>' +
         (r.potential_loan_flag ? '<span class="eu-badge" style="color:var(--accent);border:1px solid var(--accent)">possible loan</span>' : '') + '</div>' +
         '<div class="player-meta">' + esc(r.position || '—') + ' · age ' + (r.age ?? '—') + '</div></td>' +
-      '<td data-label="Club">' + esc(r.club_name || '—') + '</td>' +
+      '<td data-label="Club">' + esc(r.club_name || '—') + (r.league && r.league.includes(' - ') ? '<div class="player-meta">' + esc(r.league) + '</div>' : '') + '</td>' +
       '<td data-label="Value" class="num">' + fmtEur(r.market_value) + '</td>' +
       '<td data-label="Trend">' + trendHtml + '</td>' +
       '<td data-label="Goals" class="num">' + (r.current_season_goals ?? '—') + (r.current_season_assists ? ' <span class="player-meta">(' + r.current_season_assists + ' ast)</span>' : '') + '</td>' +
