@@ -626,19 +626,20 @@ $('modal-overlay').onclick = (e) => { if (e.target.id === 'modal-overlay') close
 async function openPlayerModal(row) {
   showModal('<div class="loading">Loading player details…</div>');
   try {
-    const [mvRes, trRes, perfRes] = await Promise.all([
+    const [mvRes, trRes, perfRes, injRes] = await Promise.all([
       fetch(SUPA_URL + '/rest/v1/market_values?player_id=eq.' + row.player_id + '&order=date.desc&select=date,value_eur&limit=15', { headers: authHeaders() }),
       fetch(SUPA_URL + '/rest/v1/transfers?player_id=eq.' + row.player_id + '&order=date.desc&select=date,from_club_id,to_club_id,fee_eur', { headers: authHeaders() }),
-      fetch(SUPA_URL + '/rest/v1/performance_fbref?player_id=eq.' + row.player_id + '&order=season.desc&select=season,competition,appearances,starts,minutes,goals,assists,yellow_cards,red_cards', { headers: authHeaders() })
+      fetch(SUPA_URL + '/rest/v1/performance_fbref?player_id=eq.' + row.player_id + '&order=season.desc&select=season,competition,appearances,starts,minutes,goals,assists,yellow_cards,red_cards', { headers: authHeaders() }),
+      fetch(SUPA_URL + '/rest/v1/injuries?player_id=eq.' + row.player_id + '&order=start_date.desc&select=injury_type,start_date,end_date,days_out', { headers: authHeaders() })
     ]);
-    renderPlayerModal(row, await mvRes.json(), await trRes.json(), await perfRes.json());
+    renderPlayerModal(row, await mvRes.json(), await trRes.json(), await perfRes.json(), await injRes.json());
     loadScoutingReport(row);
   } catch (e) {
     showModal('<div class="empty-state">Could not load player details.</div>');
   }
 }
 
-function renderPlayerModal(r, mv, tr, perf) {
+function renderPlayerModal(r, mv, tr, perf, inj) {
   let h = '<div class="modal-header"><h2>' + esc(r.name) + '</h2>' +
     '<div class="sub2">' + esc(r.club_name || 'Unattached') + ' · ' + esc(r.league || '—') +
     (r.transfermarkt_url ? ' · <a href="' + esc(r.transfermarkt_url) + '" target="_blank" rel="noopener" style="color:var(--accent)">Transfermarkt ↗</a>' : '') +
@@ -651,6 +652,7 @@ function renderPlayerModal(r, mv, tr, perf) {
     fact('Potential in 3-5 years', r.potential_value_estimate !== null && r.potential_value_estimate !== undefined ? fmtEur(r.potential_value_estimate) : '—') +
     fact('Contract ends', fmtDate(r.contract_end)) + fact('Agent', r.agent_name ? esc(r.agent_name) : '—') +
     fact('Int\'l caps / goals', (r.international_caps ?? 0) + ' / ' + (r.international_goals ?? 0)) +
+    fact('On loan', r.on_loan ? 'Yes' + (r.loan_from_club_id ? ' (from ' + esc(clubName(r.loan_from_club_id)) + ')' : '') : 'No') +
     '</div>';
 
   h += '<div class="section-title">Scouting report</div><div class="scouting-box" id="scouting-section">Researching…</div>';
@@ -665,9 +667,31 @@ function renderPlayerModal(r, mv, tr, perf) {
   else h += '<tr><td colspan="4" class="player-meta">No transfers recorded</td></tr>';
   h += '</tbody></table></div>';
 
-  h += '<div class="section-title">Performance by season</div><div class="scroll-box"><table class="mini-table"><thead><tr><th>Season</th><th>Comp</th><th>Apps</th><th>Mins</th><th>G</th><th>A</th><th>Y/R</th></tr></thead><tbody>';
-  if (perf.length) perf.forEach(p => h += '<tr><td>' + esc(p.season) + '</td><td>' + esc(p.competition) + '</td><td class="num">' + (p.appearances ?? 0) + '</td><td class="num">' + (p.minutes ?? 0) + '</td><td class="num">' + (p.goals ?? 0) + '</td><td class="num">' + (p.assists ?? 0) + '</td><td class="num">' + (p.yellow_cards ?? 0) + '/' + (p.red_cards ?? 0) + '</td></tr>');
-  else h += '<tr><td colspan="7" class="player-meta">No performance data recorded</td></tr>';
+  h += '<div class="section-title">Injury history</div><div class="scroll-box"><table class="mini-table"><thead><tr><th>Injury</th><th>From</th><th>To</th><th>Days out</th></tr></thead><tbody>';
+  if (inj.length) inj.forEach(i => h += '<tr><td>' + esc(i.injury_type || '—') + '</td><td>' + fmtDate(i.start_date) + '</td><td>' + fmtDate(i.end_date) + '</td><td class="num">' + (i.days_out ?? '—') + '</td></tr>');
+  else h += '<tr><td colspan="4" class="player-meta">No injuries recorded</td></tr>';
+  h += '</tbody></table></div>';
+
+  h += '<div class="section-title">Performance by season</div><div class="scroll-box"><table class="mini-table"><thead><tr><th>Season</th><th>Apps</th><th>Mins</th><th>G</th><th>A</th><th>Y/R</th></tr></thead><tbody>';
+  if (perf.length) {
+    const bySeason = {};
+    perf.forEach(p => {
+      const s = p.season || '—';
+      if (!bySeason[s]) bySeason[s] = { appearances: 0, minutes: 0, goals: 0, assists: 0, yellow_cards: 0, red_cards: 0 };
+      bySeason[s].appearances += p.appearances || 0;
+      bySeason[s].minutes += p.minutes || 0;
+      bySeason[s].goals += p.goals || 0;
+      bySeason[s].assists += p.assists || 0;
+      bySeason[s].yellow_cards += p.yellow_cards || 0;
+      bySeason[s].red_cards += p.red_cards || 0;
+    });
+    Object.keys(bySeason).sort().reverse().forEach(s => {
+      const r = bySeason[s];
+      h += '<tr><td>' + esc(s) + '</td><td class="num">' + r.appearances + '</td><td class="num">' + r.minutes + '</td><td class="num">' + r.goals + '</td><td class="num">' + r.assists + '</td><td class="num">' + r.yellow_cards + '/' + r.red_cards + '</td></tr>';
+    });
+  } else {
+    h += '<tr><td colspan="6" class="player-meta">No performance data recorded</td></tr>';
+  }
   h += '</tbody></table></div>';
 
   showModal(h);
